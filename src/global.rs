@@ -49,8 +49,9 @@ lazy_static! {
     /// 数字对应的颜色
     pub static ref PALACE_COLOR: Arc<Mutex<HashMap<u128, Color>>> = {
         let mut num_color_map = HashMap::new();
-        num_color_map.insert(2, util::color());
-        num_color_map.insert(4, util::color());
+        (1..=16).for_each(|i|{
+            num_color_map.insert(2_u128.pow(i), util::color());
+        });
         Arc::new(Mutex::new(num_color_map))
     };
 }
