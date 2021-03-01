@@ -21,10 +21,6 @@ pub const GAME_DESCRIPTION: &str = r#"
 pub const PALACE_SIZE: usize = 4;
 
 lazy_static! {
-    /// 宫格数字
-    // pub static ref PALACE_NUM: Arc<Mutex<Vec<Vec<u128>>>> =  Arc::new(Mutex::new(vec![vec![0; PALACE_SIZE]; PALACE_SIZE]));
-    /// 总分数
-    // pub static ref TOTAL_SCORE:Arc<Mutex<u128>> = Arc::new(Mutex::new(0));
     /// 颜色数组
     pub static ref NUM_COLOR: Vec<Color> = {
         let mut num_color = Vec::new();

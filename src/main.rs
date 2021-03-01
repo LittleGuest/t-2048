@@ -33,12 +33,12 @@ fn main() -> anyhow::Result<()> {
     let backend = CrosstermBackend::new(io::stdout());
     let mut terminal = Terminal::new(backend)?;
 
-    let mut palaces = palace::init_palace();
-
-    let mut total_score = 0_u128;
+    let mut game = palace::Game::new();
 
     loop {
         terminal.draw(|f| {
+            let game = &mut game;
+
             let chunks = Layout::default()
                 .direction(Direction::Horizontal)
                 .constraints(ui::crate_percentage_constraint(&[20, 60, 20]))
@@ -48,22 +48,26 @@ fn main() -> anyhow::Result<()> {
 
             f.render_widget(ui::crate_block(""), chunks[1]);
 
-            ui::render_palace(f, &chunks, 1, &palaces);
+            ui::render_palace(f, &chunks, 1, &game.palaces);
 
             let score_chunks = Layout::default()
                 .direction(Direction::Vertical)
                 .constraints(ui::crate_percentage_constraint(&[30; 3]))
                 .split(chunks[2]);
-            ui::render_paragraph(f, &total_score.to_string(), "得分", &score_chunks, 0);
+            ui::render_paragraph(f, &game.total_score.to_string(), "得分", &score_chunks, 0);
 
-            // let top_score = top_score.to_string();
-            // render_paragraph(f, &top_score, "最高分", &score_chunks, 1);
+            // ui::render_paragraph(f, &game.top_score.to_string(), "最高分", &score_chunks, 1);
 
-            // let move_steps = move_steps.to_string();
-            // ui::render_paragraph(f, &move_steps, "移动步数", &score_chunks, 2);
+            // ui::render_paragraph(
+            //     f,
+            //     &game.move_steps.to_string(),
+            //     "移动步数",
+            //     &score_chunks,
+            //     2,
+            // );
 
-            if palace::game_over(&palaces) {
-                ui::game_over_popup(f, total_score);
+            if game.game_over() {
+                ui::game_over_popup(f, game.total_score);
             }
         })?;
 
@@ -71,21 +75,20 @@ fn main() -> anyhow::Result<()> {
             match code {
                 KeyCode::Esc | KeyCode::Char('q') => break,
                 KeyCode::Char('r') => {
-                    total_score = 0_u128;
-                    palaces = palace::init_palace();
+                    game = palace::Game::new();
                 }
                 KeyCode::Char('z') => {}
                 KeyCode::Up | KeyCode::Char('k') => {
-                    palace::move_palaces(&mut palaces, &mut total_score, MoveDirection::Up);
+                    game.move_palaces(MoveDirection::Up);
                 }
                 KeyCode::Down | KeyCode::Char('j') => {
-                    palace::move_palaces(&mut palaces, &mut total_score, MoveDirection::Down);
+                    game.move_palaces(MoveDirection::Down);
                 }
                 KeyCode::Left | KeyCode::Char('h') => {
-                    palace::move_palaces(&mut palaces, &mut total_score, MoveDirection::Left);
+                    game.move_palaces(MoveDirection::Left);
                 }
                 KeyCode::Right | KeyCode::Char('l') => {
-                    palace::move_palaces(&mut palaces, &mut total_score, MoveDirection::Right);
+                    game.move_palaces(MoveDirection::Right);
                 }
                 _ => {}
             }
