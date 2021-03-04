@@ -3,8 +3,11 @@ use std::collections::VecDeque;
 use crate::global;
 use crate::util;
 
+use crate::store::Store;
+use anyhow::Result;
 use global::PALACE_SIZE;
 use rand::Rng;
+use serde::{Deserialize, Serialize};
 use tui::style::Style;
 use tui::widgets::{Borders, Widget};
 use tui::{buffer::Buffer, style::Color};
@@ -19,6 +22,7 @@ pub enum MoveDirection {
 }
 
 ///
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Game {
     /// 宫格数字
     pub palaces: Vec<Vec<u128>>,
@@ -37,7 +41,7 @@ impl Game {
         Self {
             palaces: Self::init_palace(),
             total_score: 0,
-            top_score: 0,
+            top_score: Self::top_score(),
             move_steps: 0,
             game_over: false,
         }
@@ -211,6 +215,36 @@ impl Game {
         }
 
         cvq.into_iter().collect::<Vec<_>>()
+    }
+
+    /// 最高分
+    pub fn top_score() -> u128 {
+        Store::top_score().unwrap_or_default()
+    }
+
+    /// 最高分
+    pub fn insert_top_score(&mut self) -> Result<()> {
+        if self.total_score > self.top_score {
+            self.top_score = self.total_score;
+            let _ = Store::insert_top_score(self.total_score);
+        }
+        Ok(())
+    }
+
+    /// 记录移动之前的状态
+    pub fn insert_history(&self) -> Result<()> {
+        Store::insert_history(self)?;
+        Ok(())
+    }
+
+    /// 撤回
+    pub fn back(&mut self) -> Result<()> {
+        if let Some(history) = Store::history()? {
+            *self = history;
+
+            Store::remove_history()?;
+        }
+        Ok(())
     }
 }
 

@@ -19,8 +19,12 @@ use tui::Terminal;
 #[macro_use]
 extern crate lazy_static;
 
+#[macro_use]
+extern crate slice_as_array;
+
 mod global;
 mod palace;
+mod store;
 mod ui;
 mod util;
 
@@ -56,7 +60,7 @@ fn main() -> anyhow::Result<()> {
                 .split(chunks[2]);
             ui::render_paragraph(f, &game.total_score.to_string(), "得分", &score_chunks, 0);
 
-            // ui::render_paragraph(f, &game.top_score.to_string(), "最高分", &score_chunks, 1);
+            ui::render_paragraph(f, &game.top_score.to_string(), "最高分", &score_chunks, 1);
 
             // ui::render_paragraph(
             //     f,
@@ -77,18 +81,28 @@ fn main() -> anyhow::Result<()> {
                 KeyCode::Char('r') => {
                     game = palace::Game::new();
                 }
-                KeyCode::Char('z') => {}
+                KeyCode::Char('z') => {
+                    game.back()?;
+                }
                 KeyCode::Up | KeyCode::Char('k') => {
+                    game.insert_history()?;
                     game.move_palaces(MoveDirection::Up);
+                    game.insert_top_score()?;
                 }
                 KeyCode::Down | KeyCode::Char('j') => {
+                    game.insert_history()?;
                     game.move_palaces(MoveDirection::Down);
+                    game.insert_top_score()?;
                 }
                 KeyCode::Left | KeyCode::Char('h') => {
+                    game.insert_history()?;
                     game.move_palaces(MoveDirection::Left);
+                    game.insert_top_score()?;
                 }
                 KeyCode::Right | KeyCode::Char('l') => {
+                    game.insert_history()?;
                     game.move_palaces(MoveDirection::Right);
+                    game.insert_top_score()?;
                 }
                 _ => {}
             }

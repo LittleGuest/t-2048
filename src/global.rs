@@ -20,6 +20,11 @@ pub const GAME_DESCRIPTION: &str = r#"
 /// 宫格初始大小 n*n
 pub const PALACE_SIZE: usize = 4;
 
+/// 状态键
+pub const HISTORY: &str = "history";
+/// 最高分键
+pub const TOP_SCORE: &str = "top_score";
+
 lazy_static! {
     /// 颜色数组
     pub static ref NUM_COLOR: Vec<Color> = {
@@ -45,8 +50,8 @@ lazy_static! {
     /// 数字对应的颜色
     pub static ref PALACE_COLOR: Arc<Mutex<HashMap<u128, Color>>> = {
         let mut num_color_map = HashMap::new();
-        (1..=16).for_each(|i|{
-            num_color_map.insert(2_u128.pow(i), util::color());
+        (0..16).for_each(|i|{
+            num_color_map.insert(2_u128.rotate_left(i), util::color());
         });
         Arc::new(Mutex::new(num_color_map))
     };
