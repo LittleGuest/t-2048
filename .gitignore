@@ -3,4 +3,5 @@
 .vscode
 
 /T2048.AppDir
+*.AppImage
 /.T2048

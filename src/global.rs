@@ -7,23 +7,22 @@ use tui::style::Color;
 
 /// 游戏说明
 pub const GAME_DESCRIPTION: &str = r#"
-1. 通过控制
+1. 按 m 或 M 键选择模式；
+2. 通过控制
   方向键上下左右
   或
   h(左)j(下)k(上)l(右)
   移动数字方块；
-2. 重新开始(r)
+3. 重新开始(r)
    撤回(z)
    退出(q | Esc)
 "#;
 
 /// 宫格初始大小 n*n
-pub const PALACE_SIZE: usize = 4;
+pub static mut PALACE_SIZE: usize = 4;
 
 /// 状态键
 pub const HISTORY: &str = "history";
-/// 最高分键
-pub const TOP_SCORE: &str = "top_score";
 
 lazy_static! {
     /// 颜色数组

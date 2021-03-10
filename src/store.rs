@@ -1,4 +1,4 @@
-use crate::global::{HISTORY, TOP_SCORE};
+use crate::global::{HISTORY, PALACE_SIZE};
 use crate::palace::Game;
 use anyhow::Result;
 use sled::{self, Db};
@@ -12,13 +12,15 @@ pub struct Store;
 impl Store {
     /// 插入最高分
     pub fn insert_top_score(score: u128) -> Result<()> {
-        DB.insert("top_score", &score.to_be_bytes())?;
+        let palace_size = unsafe { PALACE_SIZE };
+        DB.insert(format!("{}_top_score", palace_size), &score.to_be_bytes())?;
         Ok(())
     }
 
     /// 获取最高分
     pub fn top_score() -> Result<u128> {
-        let top_score = DB.get(TOP_SCORE)?;
+        let palace_size = unsafe { PALACE_SIZE };
+        let top_score = DB.get(format!("{}_top_score", palace_size))?;
         if let Some(top_score) = top_score {
             if let Some(&top_score) = slice_as_array!(top_score.as_ref(), [u8; 16]) {
                 return Ok(u128::from_be_bytes(top_score));
@@ -35,7 +37,7 @@ impl Store {
     }
 
     /// 获取上次的状态
-    pub fn history() -> Result<Option<Game>> {
+    pub fn history<'a>() -> Result<Option<Game<'a>>> {
         let history = DB.get(HISTORY)?;
         if let Some(history) = history {
             let game = serde_json::from_slice::<Game>(&*history)?;

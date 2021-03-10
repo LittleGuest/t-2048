@@ -1,3 +1,8 @@
+#[macro_use]
+extern crate lazy_static;
+#[macro_use]
+extern crate slice_as_array;
+
 use std::io;
 
 use crossterm::cursor::{Hide, Show};
@@ -6,21 +11,13 @@ use crossterm::execute;
 use crossterm::terminal::{
     disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen,
 };
+use tui::backend::{Backend, CrosstermBackend};
+use tui::layout::{Direction, Layout};
+use tui::Terminal;
 
 use global::GAME_DESCRIPTION;
 
-use tui::backend::CrosstermBackend;
-use tui::layout::{Direction, Layout};
-
 use crate::palace::MoveDirection;
-
-use tui::Terminal;
-
-#[macro_use]
-extern crate lazy_static;
-
-#[macro_use]
-extern crate slice_as_array;
 
 mod global;
 mod palace;
@@ -28,15 +25,7 @@ mod store;
 mod ui;
 mod util;
 
-fn main() -> anyhow::Result<()> {
-    enable_raw_mode()?;
-
-    let mut stdout = io::stdout();
-    execute!(stdout, EnterAlternateScreen, Hide, EnableMouseCapture)?;
-
-    let backend = CrosstermBackend::new(io::stdout());
-    let mut terminal = Terminal::new(backend)?;
-
+fn setup(terminal: &mut Terminal<impl Backend>) -> anyhow::Result<()> {
     let mut game = palace::Game::new();
 
     loop {
@@ -48,9 +37,14 @@ fn main() -> anyhow::Result<()> {
                 .constraints(ui::crate_percentage_constraint(&[20, 60, 20]))
                 .split(f.size());
 
-            ui::render_paragraph(f, GAME_DESCRIPTION, "游戏说明", &chunks, 0);
+            let left = Layout::default()
+                .direction(Direction::Vertical)
+                .constraints(ui::crate_percentage_constraint(&[50; 2]))
+                .split(chunks[0]);
 
-            f.render_widget(ui::crate_block(""), chunks[1]);
+            ui::render_description(f, GAME_DESCRIPTION, "游戏说明", &left, 0);
+
+            ui::render_model(f, &left, 1, game);
 
             ui::render_palace(f, &chunks, 1, &game.palaces);
 
@@ -62,14 +56,6 @@ fn main() -> anyhow::Result<()> {
 
             ui::render_paragraph(f, &game.top_score.to_string(), "最高分", &score_chunks, 1);
 
-            // ui::render_paragraph(
-            //     f,
-            //     &game.move_steps.to_string(),
-            //     "移动步数",
-            //     &score_chunks,
-            //     2,
-            // );
-
             if game.game_over() {
                 ui::game_over_popup(f, game.total_score);
             }
@@ -79,7 +65,7 @@ fn main() -> anyhow::Result<()> {
             match code {
                 KeyCode::Esc | KeyCode::Char('q') => break,
                 KeyCode::Char('r') => {
-                    game = palace::Game::new();
+                    game.change_model();
                 }
                 KeyCode::Char('z') => {
                     game.back()?;
@@ -104,10 +90,32 @@ fn main() -> anyhow::Result<()> {
                     game.move_palaces(MoveDirection::Right);
                     game.insert_top_score()?;
                 }
+                KeyCode::Char('m') => {
+                    game.model.next();
+                    game.change_model();
+                }
+                KeyCode::Char('M') => {
+                    game.model.previous();
+                    game.change_model();
+                }
                 _ => {}
             }
         }
     }
+
+    Ok(())
+}
+
+fn main() -> anyhow::Result<()> {
+    enable_raw_mode()?;
+
+    let mut stdout = io::stdout();
+    execute!(stdout, EnterAlternateScreen, Hide, EnableMouseCapture)?;
+
+    let backend = CrosstermBackend::new(io::stdout());
+    let mut terminal = Terminal::new(backend)?;
+
+    setup(&mut terminal)?;
 
     execute!(stdout, LeaveAlternateScreen, Show, DisableMouseCapture)?;
     disable_raw_mode()?;

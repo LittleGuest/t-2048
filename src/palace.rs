@@ -1,17 +1,17 @@
 use std::collections::VecDeque;
 
-use crate::global;
-use crate::util;
-
-use crate::store::Store;
 use anyhow::Result;
 use global::PALACE_SIZE;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
-use tui::style::Style;
 use tui::widgets::{Borders, Widget};
 use tui::{buffer::Buffer, style::Color};
 use tui::{layout::Rect, widgets::BorderType};
+use tui::{style::Style, widgets::ListState};
+
+use crate::global;
+use crate::store::Store;
+use crate::util;
 
 /// 移动方向
 pub enum MoveDirection {
@@ -23,7 +23,7 @@ pub enum MoveDirection {
 
 ///
 #[derive(Debug, Serialize, Deserialize)]
-pub struct Game {
+pub struct Game<'a> {
     /// 宫格数字
     pub palaces: Vec<Vec<u128>>,
     /// 总分
@@ -34,9 +34,65 @@ pub struct Game {
     pub move_steps: u128,
     /// 结束    
     pub game_over: bool,
+    /// 模式
+    #[serde(skip)]
+    pub model: Model<'a>,
 }
 
-impl Game {
+/// n * n 模式
+#[derive(Debug, Default)]
+pub struct Model<'a> {
+    pub state: ListState,
+    pub items: Vec<(&'a str, usize)>,
+}
+
+impl<'a> Model<'a> {
+    pub fn new() -> Self {
+        let mut ls = ListState::default();
+        ls.select(Some(1));
+
+        Self {
+            state: ls,
+            items: vec![("3 * 3", 3), ("4 * 4", 4), ("5 * 5", 5), ("6 * 6", 6)],
+        }
+    }
+
+    pub fn next(&mut self) {
+        let i = match self.state.selected() {
+            Some(i) => {
+                if i >= self.items.len() - 1 {
+                    0
+                } else {
+                    i + 1
+                }
+            }
+            None => 0,
+        };
+        self.state.select(Some(i));
+        unsafe {
+            PALACE_SIZE = self.items[i].1;
+        }
+    }
+
+    pub fn previous(&mut self) {
+        let i = match self.state.selected() {
+            Some(i) => {
+                if i == 0 {
+                    self.items.len() - 1
+                } else {
+                    i - 1
+                }
+            }
+            None => 0,
+        };
+        self.state.select(Some(i));
+        unsafe {
+            PALACE_SIZE = self.items[i].1;
+        }
+    }
+}
+
+impl<'a> Game<'a> {
     pub fn new() -> Self {
         Self {
             palaces: Self::init_palace(),
@@ -44,12 +100,13 @@ impl Game {
             top_score: Self::top_score(),
             move_steps: 0,
             game_over: false,
+            model: Model::new(),
         }
     }
 
     /// 初始化宫格数字
     fn init_palace() -> Vec<Vec<u128>> {
-        let mut palaces = vec![vec![0; PALACE_SIZE]; PALACE_SIZE];
+        let mut palaces = unsafe { vec![vec![0; PALACE_SIZE]; PALACE_SIZE] };
         let mut index = 0;
         loop {
             if index >= 2 {
@@ -68,6 +125,15 @@ impl Game {
         }
 
         palaces
+    }
+
+    /// 改变模式
+    pub fn change_model(&mut self) {
+        self.palaces = Self::init_palace();
+        self.total_score = 0;
+        self.top_score = Self::top_score();
+        self.move_steps = 0;
+        self.game_over = false;
     }
 
     /// 游戏是否结束
@@ -119,11 +185,12 @@ impl Game {
 
     /// 移动
     pub fn move_palaces(&mut self, md: MoveDirection) {
+        let palace_size = unsafe { PALACE_SIZE };
         match md {
             MoveDirection::Up => {
-                for x in 0..PALACE_SIZE {
+                for x in 0..palace_size {
                     let mut o = Vec::new();
-                    for y in 0..PALACE_SIZE {
+                    for y in 0..palace_size {
                         o.push(self.palaces[y][x]);
                     }
                     self.merge(&o).iter().enumerate().for_each(|(y, yv)| {
@@ -132,26 +199,26 @@ impl Game {
                 }
             }
             MoveDirection::Down => {
-                for x in 0..PALACE_SIZE {
+                for x in 0..palace_size {
                     let mut o = Vec::new();
-                    for y in 0..PALACE_SIZE {
-                        o.push(self.palaces[PALACE_SIZE - y - 1][x]);
+                    for y in 0..palace_size {
+                        o.push(self.palaces[palace_size - y - 1][x]);
                     }
                     self.merge(&o.into_iter().collect::<Vec<_>>())
                         .iter()
                         .enumerate()
                         .for_each(|(y, yv)| {
-                            self.palaces[PALACE_SIZE - y - 1][x] = *yv;
+                            self.palaces[palace_size - y - 1][x] = *yv;
                         });
                 }
             }
             MoveDirection::Left => {
-                (0..PALACE_SIZE).for_each(|i| {
+                (0..palace_size).for_each(|i| {
                     self.palaces[i] = self.merge(&self.palaces[i].clone());
                 });
             }
             MoveDirection::Right => {
-                (0..PALACE_SIZE).for_each(|i| {
+                (0..palace_size).for_each(|i| {
                     self.palaces[i] = self
                         .merge(&self.palaces[i].iter().rev().cloned().collect::<Vec<_>>())
                         .iter()
@@ -181,6 +248,7 @@ impl Game {
 
     /// 向左合并数字
     fn merge(&mut self, vs: &[u128]) -> Vec<u128> {
+        let palace_size = unsafe { PALACE_SIZE };
         let mut q = vs.iter().collect::<VecDeque<_>>();
         // 存放合并之后的值的队列
         let mut cvq = VecDeque::new();
@@ -208,8 +276,8 @@ impl Game {
         }
 
         // 将剩余的补0
-        if cvq.len() < PALACE_SIZE {
-            (0..PALACE_SIZE - cvq.len()).for_each(|_| {
+        if cvq.len() < palace_size {
+            (0..palace_size - cvq.len()).for_each(|_| {
                 cvq.push_back(0);
             });
         }
@@ -240,7 +308,11 @@ impl Game {
     /// 撤回
     pub fn back(&mut self) -> Result<()> {
         if let Some(history) = Store::history()? {
-            *self = history;
+            self.palaces = history.palaces;
+            self.total_score = history.total_score;
+            self.top_score = Self::top_score();
+            self.move_steps = history.move_steps;
+            self.game_over = history.game_over;
 
             Store::remove_history()?;
         }
@@ -398,7 +470,7 @@ mod test {
             vec![0, 0, 0, 0],
         ];
 
-        (0..PALACE_SIZE).for_each(|i| {
+        (0..4).for_each(|i| {
             palaces[i] = game.merge(&palaces[i]);
         });
 
@@ -420,7 +492,7 @@ mod test {
             vec![0, 0, 0, 0],
         ];
 
-        (0..PALACE_SIZE).for_each(|i| {
+        (0..4).for_each(|i| {
             palaces[i] = game
                 .merge(&palaces[i].iter().rev().cloned().collect::<Vec<_>>())
                 .iter()
@@ -447,9 +519,9 @@ mod test {
             vec![0, 0, 0, 0],
         ];
 
-        for x in 0..PALACE_SIZE {
+        for x in 0..4 {
             let mut o = Vec::new();
-            for y in 0..PALACE_SIZE {
+            for y in 0..4 {
                 o.push(palaces[y][x]);
             }
             game.merge(&o).iter().enumerate().for_each(|(y, yv)| {
@@ -475,16 +547,16 @@ mod test {
             vec![0, 0, 0, 0],
         ];
 
-        for x in 0..PALACE_SIZE {
+        for x in 0..4 {
             let mut o = Vec::new();
-            for y in 0..PALACE_SIZE {
-                o.push(palaces[PALACE_SIZE - y - 1][x]);
+            for y in 0..4 {
+                o.push(palaces[4 - y - 1][x]);
             }
             game.merge(&o.into_iter().collect::<Vec<_>>())
                 .iter()
                 .enumerate()
                 .for_each(|(y, yv)| {
-                    palaces[PALACE_SIZE - y - 1][x] = *yv;
+                    palaces[4 - y - 1][x] = *yv;
                 });
         }
 
