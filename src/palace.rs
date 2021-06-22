@@ -446,7 +446,7 @@ impl Widget for Palace {
         };
 
         buf.set_string(
-            area.left() + area.width / 2 - text.len() as u16 / 2,
+            area.left() + area.width / 2 - text.chars().count() as u16 / 2,
             area.top() + area.height / 2,
             text,
             Style::default().fg(Color::White),
